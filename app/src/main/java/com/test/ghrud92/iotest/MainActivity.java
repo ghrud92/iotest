@@ -11,15 +11,18 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
-    MyAsync task;
+    phpInsert task_insert;
     int value;
     String name;
     EditText text;
@@ -41,8 +44,8 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(MainActivity.this, "No input",Toast.LENGTH_SHORT).show();
                 else
                 {
-                    task = new MyAsync();
-                    task.execute(100);
+                    task_insert = new phpInsert();
+                    task_insert.execute("http://127.0.0.1/iotest.php?name=" + name);
                 }
             }
         });
@@ -70,40 +73,57 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    class MyAsync extends AsyncTask<Integer, Integer, Integer> {
+    private class phpInsert extends AsyncTask<String, Integer, String> {
         protected void onPreExecute() {
 
         }
 
-        protected Integer doInBackground(Integer... values) {
-
-            Log.v("iotest","1");
-            String url = "192.168.0.32/iotest.php?name="+name;
-            try {
-                Log.v("iotest","2");
-                URL ioTest = new URL(url);
-                Log.v("iotest","3");
-                HttpURLConnection conn = (HttpURLConnection) ioTest.openConnection();
-                Log.v("iotest","4");
-                conn.connect();
-                Log.v("iotest","5");
-            }catch(MalformedURLException e){
-                Toast.makeText(MainActivity.this,e+" error",Toast.LENGTH_SHORT).show();
-            //}catch(UnsupportedEncodingException e){
-            //    Toast.makeText(MainActivity.this,e+" error",Toast.LENGTH_SHORT).show();
-            }catch(IOException e){
-                Toast.makeText(MainActivity.this,e+" error",Toast.LENGTH_SHORT).show();
+        protected String doInBackground(String... urls) {
+            StringBuilder resultText = new StringBuilder();
+            try{
+                //연결 url 설정
+                URL url = new URL(urls[0]);
+                //커넥션 객체 생성
+                HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+                //연결 되었으면
+                if(conn != null) {
+                    Log.v("test","1");
+                    conn.setConnectTimeout(10000);
+                    Log.v("test", "2");
+                    conn.setUseCaches(false);
+                    Log.v("test", "3");
+                    //연결되었음 코드가 리턴되면
+                    if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                        Log.v("test","4");
+                        BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+                        for (; ; ) {
+                            //웹상에 보여지는 텍스트를 라인단위로 읽어 저장.
+                            String line = br.readLine();
+                            if (line == null) break;
+                            //저당된 텍스트 라인을 jsonHtml에 붙여넣음
+                            resultText.append(line);
+                        }
+                        br.close();
+                    }
+                    conn.disconnect();
+                }
+            } catch(Exception e){
+                e.printStackTrace();
             }
-
-            return value;
+            return resultText.toString();
         }
 
         protected void onProgressUpdate(Integer... values) {
 
         }
 
-        protected void onPostExecute(Integer result) {
-
+        protected void onPostExecute(String str) {
+            Log.v("test",str);
+            if(str.equals("1")){
+                Toast.makeText(getApplicationContext(),"DB Insert Complete.",Toast.LENGTH_SHORT).show();
+            }else{
+                Toast.makeText(getApplicationContext(),"DB Insert Failed.",Toast.LENGTH_SHORT).show();
+            }
         }
 
         protected void onCancelled() {
